@@ -1,6 +1,6 @@
 # K5 · Day 9 · Lab — Evaluation & Failure Analysis (LogiX-VN)
 
-> Nối tiếp Lab 8. Lab 8 trả lời "agent có chạy không"; Lab 9 trả lời **"làm sao biết bản mới tốt hơn — và chặn được bản tệ trước khi merge"**.
+> Nối tiếp Lab 8 (Lab 8 của tôi nằm tại folder [../day8/K5-L3A-DAY08-BigMouse-FromWorkflowsToAgents/](../day8/K5-L3A-DAY08-BigMouse-FromWorkflowsToAgents/ ). Lab 8 trả lời "agent có chạy không"; Lab 9 trả lời **"làm sao biết bản mới tốt hơn — và chặn được bản tệ trước khi merge"**.
 > Không cần API key: MockLLM + judge replay. **Không Langfuse / OTel** (observability học ở Day 14).
 
 ## Bạn sẽ làm gì (13:30–17:00 trên lớp, nộp muộn nhất 23:59 cùng ngày)

@@ -1,3 +1,10 @@
+# Secrets (skeleton-lab)
+.env
+.env.*
+!.env.example
+
+# Python / OS
+.venv/
 __pycache__/
 *.pyc
 src/reports/
