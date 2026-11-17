@@ -1,0 +1,68 @@
+name: retry-macos-queue
+
+# Hosted macOS runners sometimes never acquire a machine: the job stays queued
+# for ~15m, then GitHub cancels it with no steps run and no annotation visible
+# to `gh`. A normal step retry cannot help because the job never starts. This
+# workflow re-queues only those failed jobs, up to two extra attempts.
+on:
+  workflow_run:
+    workflows: ["lab8-cross-platform"]
+    types: [completed]
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: retry-macos-${{ github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+jobs:
+  retry:
+    if: >
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.run_attempt < 3
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check that only never-started macOS jobs failed
+        id: inspect
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          echo "retry=false" >> "$GITHUB_OUTPUT"
+          gh api --paginate "repos/$REPO/actions/runs/$RUN_ID/jobs?filter=latest" \
+            --jq '.jobs[]
+                  | select(.conclusion == "failure" or .conclusion == "cancelled" or .conclusion == "timed_out")
+                  | {name, conclusion, steps: (.steps | length)}' > failed.jsonl
+          if [[ ! -s failed.jsonl ]]; then
+            echo "No failed jobs to retry."
+            exit 0
+          fi
+          cat failed.jsonl
+          # A hosted-runner queue cancellation has no steps at all. A real test
+          # failure or manual cancel has steps, and must stay red for a human.
+          if ! jq -s -e 'length > 0 and all(.[]; (.name | startswith("macos-latest / ")) and .steps == 0)' \
+               failed.jsonl >/dev/null; then
+            echo "Failed jobs are not macOS queue cancellations; not retrying."
+            exit 0
+          fi
+          attempt="${{ github.event.workflow_run.run_attempt }}"
+          echo "retry=true" >> "$GITHUB_OUTPUT"
+          echo "delay=$(( attempt * 300 ))" >> "$GITHUB_OUTPUT"
+          echo "Retrying attempt $(( attempt + 1 )) after $(( attempt * 300 ))s."
+
+      - name: Wait for macOS capacity
+        if: steps.inspect.outputs.retry == 'true'
+        run: sleep "${{ steps.inspect.outputs.delay }}"
+
+      - name: Re-run failed macOS jobs
+        if: steps.inspect.outputs.retry == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: gh api --method POST "repos/$REPO/actions/runs/$RUN_ID/rerun-failed-jobs"
